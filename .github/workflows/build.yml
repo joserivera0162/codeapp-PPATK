@@ -17,7 +17,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compilar Binario Nativo
+      - name: Instalar CocoaPods si existe Podfile
+        run: |
+          if [ -f Podfile ] || [ -f ios/Podfile ]; then
+            echo "Instalando dependencias de CocoaPods..."
+            pod install || (cd ios && pod install)
+          fi
+
+      - name: Compilar Binario Nativo Plano
         run: |
           if [ -d *.xcworkspace ]; then
             WORKSPACE_NAME=$(basename *.xcworkspace)
