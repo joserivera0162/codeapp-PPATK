@@ -24,15 +24,24 @@ jobs:
           MOBILEPROVISION_BASE64: ${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$P12_BASE64" | base64 --decode > certificate.p12
-          echo "$MOBILEPROVISION_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
           
-          # Crear llavero nativo sin contraseña para evitar bloqueos del sistema de Apple
-          security create-keychain -p "" build.keychain
+          # Limpia espacios o saltos de línea corruptos del Base64 antes de decodificar
+          echo "$P12_BASE64" | tr -d '\r\n ' | base64 --decode > certificate.p12
+          echo "$MOBILEPROVISION_BASE64" | tr -d '\r\n ' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          
+          # Crear llavero nativo temporal seguro
+          security create-keychain -p "github-pass" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          security unlock-keychain -p "github-pass" build.keychain
+          
+          # Solución al SecKeychainItemImport: Intenta importar con contraseña y reintenta sin contraseña si falla
+          if [ -z "$P12_PASSWORD" ]; then
+            security import certificate.p12 -k build.keychain -P "" -A -T /usr/bin/codesign || security import certificate.p12 -k build.keychain -A -T /usr/bin/codesign
+          else
+            security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -A -T /usr/bin/codesign
+          fi
+          
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github-pass" build.keychain
 
       - name: Descargar Frameworks Obligatorios de CodeApp
         run: |
