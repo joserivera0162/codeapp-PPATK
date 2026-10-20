@@ -1,4 +1,4 @@
-name: Advanced CodeApp IPA Build
+name: Build IPA Only
 
 on:
   workflow_dispatch:
@@ -9,67 +9,57 @@ concurrency:
 
 jobs:
   deploy:
-    name: Advanced Corporate Build
+    name: Advanced CodeApp Architecture Build
     runs-on: macos-14
-    
     steps:
-      - name: Checkout Repository Code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Select Stable Xcode Version
+      - name: Crear Identidad de Firma Nativa Temporal
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
-          xcodebuild -version
+          # Crea un llavero local inmune al error de firmas y una identidad Ad-Hoc reconocida por el Linker de Xcode
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
 
-      - name: Execute CodeApp Framework Downloader
+      - name: Ejecutar script de Frameworks de CodeApp
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Purge Framework Signatures & Extended Attributes
+      - name: Instalar Dependencias de CocoaPods
         run: |
-          echo "Borrando metadatos corruptos y firmas antiguas de los sub-entornos..."
-          find . -name "*.framework" -type d -exec xattr -cr {} +
-          find . -name "*.framework" -type d -exec codesign --remove-signature {} + 2>/dev/null || true
-          find . -name "*.a" -type f -exec xattr -cr {} +
-          find . -name "*.dylib" -type f -exec xattr -cr {} +
+          pod install
 
-      - name: Deep Code-Sign Override Configuration
-        run: |
-          echo "CODE_SIGNING_ALLOWED=YES" >> $GITHUB_ENV
-          echo "CODE_SIGNING_REQUIRED=NO" >> $GITHUB_ENV
-          echo "CODE_SIGN_IDENTITY=-" >> $GITHUB_ENV
-          echo "AD_HOC_CODE_SIGNING_ALLOWED=YES" >> $GITHUB_ENV
-
-      - name: Execute Advanced Xcode Engine Compilation
+      - name: Compilar Esquema Code App de Forma Completa
         run: |
           xcodebuild -project Code.xcodeproj \
-            -scheme CodeUI \
+            -scheme "Code App" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath ./DerivedDataOutput \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="-" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            ONLY_ACTIVE_ARCH=NO \
             clean build
 
-      - name: Structure and Compress Final IPA Package
+      - name: Empaquetar y Mover Estructura a appcodeplapla
         run: |
-          echo "Estructurando jerarquía de instalación iOS..."
           mkdir -p Payload
-          TARGET_APP=$(find ./DerivedDataOutput -name "CodeUI.app" -type d | head -n 1)
+          TARGET_APP=$(find ./DerivedDataOutput -name "Code.app" -type d | head -n 1)
           if [ -z "$TARGET_APP" ]; then
             TARGET_APP=$(find ./DerivedDataOutput -name "*.app" -type d | head -n 1)
           fi
-          echo "Aplicación localizada en: $TARGET_APP"
+          echo "Aplicación base localizada en: $TARGET_APP"
           cp -R "$TARGET_APP" Payload/
           zip -r appcodeplapla.ipa Payload
 
-      - name: Dispatch Production Artifact to GitHub
+      - name: Descargar IPA Final para Ksign
         uses: actions/upload-artifact@v4
         with:
           name: appcodeplapla
