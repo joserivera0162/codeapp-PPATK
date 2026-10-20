@@ -1,4 +1,4 @@
-name: Build CodeApp Advanced
+name: Build IPA Only
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Advanced Corporate Build
+    name: Advanced CodeApp Architecture Build
     runs-on: macos-14
     steps:
       - name: Checkout repository
@@ -17,38 +17,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Instalar Certificados de Ksign en la Mac de GitHub
-        env:
-          P12_BASE64: ${{ secrets.KSIGN_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.KSIGN_P12_PASSWORD }}
-          MOBILEPROVISION_BASE64: ${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}
+      - name: Instalar Certificados Oficiales (Parche de Llavero)
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.KSIGN_P12_BASE64 }}
+          p12-password: ${{ secrets.KSIGN_P12_PASSWORD }}
+
+      - name: Instalar Perfiles de Provisión Ksign
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          
-          # Limpia espacios o saltos de línea corruptos del Base64 antes de decodificar
-          echo "$P12_BASE64" | tr -d '\r\n ' | base64 --decode > certificate.p12
-          echo "$MOBILEPROVISION_BASE64" | tr -d '\r\n ' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-          
-          # Crear llavero nativo temporal seguro
-          security create-keychain -p "github-pass" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "github-pass" build.keychain
-          
-          # Solución al SecKeychainItemImport: Intenta importar con contraseña y reintenta sin contraseña si falla
-          if [ -z "$P12_PASSWORD" ]; then
-            security import certificate.p12 -k build.keychain -P "" -A -T /usr/bin/codesign || security import certificate.p12 -k build.keychain -A -T /usr/bin/codesign
-          else
-            security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -A -T /usr/bin/codesign
-          fi
-          
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github-pass" build.keychain
+          echo "${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}" | tr -d '\r\n ' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
-      - name: Descargar Frameworks Obligatorios de CodeApp
+      - name: Ejecutar script de Frameworks de CodeApp
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Compilar Code App Firmado de Forma Unificada
+      - name: Compilar Esquema Code App de Forma Completa
         run: |
           xcodebuild -project Code.xcodeproj \
             -scheme "Code App" \
@@ -57,7 +42,7 @@ jobs:
             -derivedDataPath ./DerivedDataOutput \
             clean build
 
-      - name: Empaquetar y Generar IPA Final
+      - name: Empaquetar y Mover Estructura a appcodeplapla
         run: |
           mkdir -p Payload
           TARGET_APP=$(find ./DerivedDataOutput -name "Code App.app" -type d -o -name "Code.app" -type d | head -n 1)
@@ -68,7 +53,7 @@ jobs:
           cp -R "$TARGET_APP" Payload/
           zip -r appcodeplapla.ipa Payload
 
-      - name: Enviar a GitHub Artifacts
+      - name: Descargar IPA Final para Ksign
         uses: actions/upload-artifact@v4
         with:
           name: appcodeplapla
