@@ -17,32 +17,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Forzar Xcode a usar Firma Local Simulada
-        run: |
-          echo "CODE_SIGNING_ALLOWED=YES" >> $GITHUB_ENV
-          echo "CODE_SIGNING_REQUIRED=NO" >> $GITHUB_ENV
-          echo "CODE_SIGN_IDENTITY=-" >> $GITHUB_ENV
-          echo "PROVISIONING_PROFILE_SPECIFIER=" >> $GITHUB_ENV
-
-      - name: Build Xcode
+      - name: Compilar Proyecto en Modo Simulador
         run: |
           if [ -d *.xcworkspace ]; then
             WORKSPACE_NAME=$(basename *.xcworkspace)
-            SCHEME_NAME=${WORKSPACE_NAME%.xcworkspace}
-            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="-" clean build
+            SCHEME_NAME=$(xcodebuild -workspace "$WORKSPACE_NAME" -list | sed -n '/Schemes:/,$p' | sed -n '3p' | sed 's/^[ \t]*//')
+            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator -arch arm64 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
           else
             PROJECT_NAME=$(basename *.xcodeproj)
-            SCHEME_NAME=${PROJECT_NAME%.xcodeproj}
-            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="-" clean build
+            SCHEME_NAME=$(xcodebuild -project "$PROJECT_NAME" -list | sed -n '/Schemes:/,$p' | sed -n '3p' | sed 's/^[ \t]*//')
+            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator -arch arm64 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
           fi
 
-      - name: Package
+      - name: Convertir .app a IPA
         run: |
           mkdir -p Payload
-          mv build/Release-iphoneos/*.app Payload/ 2>/dev/null || mv ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/
+          mv ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphonesimulator/*.app Payload/ 2>/dev/null || mv build/Release-iphonesimulator/*.app Payload/
           zip -r appcodeplapla.ipa Payload
 
-      - name: Upload
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: appcodeplapla
