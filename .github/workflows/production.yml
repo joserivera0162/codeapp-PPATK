@@ -1,1 +1,14 @@
-
+name: Buscar mi Team ID
+on: [workflow_dispatch]
+jobs:
+  find_id:
+    name: Extrayendo ID de Ksign
+    runs-on: macos-14
+    steps:
+      - name: Decodificar y Mostrar Team ID
+        run: |
+          echo "${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}" | tr -d '\r\n ' | base64 --decode > test.mobileprovision
+          TEAM_ID=$(strings test.mobileprovision | grep -A 1 "TeamIdentifier" | grep "<string>" | sed -E 's/<\/?string>//g' | tr -d '[:space:]' | head -n 1)
+          echo "=========================================="
+          echo "TU TEAM ID REAL ES: $TEAM_ID"
+          echo "=========================================="
