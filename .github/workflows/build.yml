@@ -1,1 +1,49 @@
+name: Build IPA Only
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Compilando IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prep env
+        run: |
+          echo "CODE_SIGNING_ALLOWED=NO" >> $GITHUB_ENV
+          echo "CODE_SIGN_IDENTITY=" >> $GITHUB_ENV
+          echo "PROVISIONING_PROFILE_SPECIFIER=" >> $GITHUB_ENV
+
+      - name: Build Xcode
+        run: |
+          if [ -d *.xcworkspace ]; then
+            WORKSPACE_NAME=$(basename *.xcworkspace)
+            SCHEME_NAME=${WORKSPACE_NAME%.xcworkspace}
+            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+          else
+            PROJECT_NAME=$(basename *.xcodeproj)
+            SCHEME_NAME=${PROJECT_NAME%.xcodeproj}
+            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+          fi
+
+      - name: Package
+        run: |
+          mkdir -p Payload
+          mv build/Release-iphoneos/*.app Payload/ 2>/dev/null || mv ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/
+          zip -r appcodeplapla.ipa Payload
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: appcodeplapla
+          path: appcodeplapla.ipa
 
