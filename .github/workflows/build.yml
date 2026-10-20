@@ -22,18 +22,18 @@ jobs:
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Purgar Contenido de Prueba y Parchear Xcode
+      - name: Purgar Reglas de Desarrollo y Forzar Configuración Global limpia
         run: |
-          # Elimina la carpeta de recursos de prueba que hace fallar a CompileAssetCatalog
-          rm -rf "CodeApp/Preview Content"
+          # Elimina de raíz la validación de assets de desarrollo en el archivo de Xcode
+          sed -i '' 's/DEVELOPMENT_ASSET_PATHS = [^;]*;//g' Code.xcodeproj/project.pbxproj
           
-          # Remueve referencias manuales conflictivas del archivo del proyecto
+          # Fuerza el modo de firma automático y limpia cualquier amarre previo
           sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "[^"]*";//g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;//g' Code.xcodeproj/project.pbxproj
 
-      - name: Compilar Esquema Code App sin Validación de Certificados
+      - name: Compilar Esquema Code App Bloqueando Errores Derivados
         run: |
           xcodebuild -project Code.xcodeproj \
             -scheme "Code App" \
@@ -46,6 +46,9 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="" \
             ASSETCATALOG_COMPILER_SKIP_APP_STORE_VALIDATION=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            EXTENSIONS_ALLOWED=NO \
             clean build
 
       - name: Empaquetar y Mover Estructura a appcodeplapla
