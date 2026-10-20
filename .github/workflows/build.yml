@@ -17,43 +17,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Instalar Certificados Oficiales
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.KSIGN_P12_BASE64 }}
-          p12-password: ${{ secrets.KSIGN_P12_PASSWORD }}
-
-      - name: Instalar Perfiles de Provisión Ksign
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}" | tr -d '\r\n ' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-
       - name: Ejecutar script de Frameworks de CodeApp
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Parchear e Inyectar tu Team ID de Forma Segura
+      - name: Desactivar Requisitos de Firma en Entidades Hijas
         run: |
-          REAL_TEAM_ID="ZXB3TS7QD4"
-          echo "Configurando el proyecto con tu Team ID fijo: $REAL_TEAM_ID"
-          
-          # Forzar firma manual idéntica para limpiar el conflicto de Xcode
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' Code.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Code.xcodeproj/project.pbxproj
+          # Modifica la configuración de Xcode para desactivar firmas manuales conflictivas de raíz
+          sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' Code.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "[^"]*";//g' Code.xcodeproj/project.pbxproj
-          sed -i '' "s/DEVELOPMENT_TEAM = [^;]*/DEVELOPMENT_TEAM = $REAL_TEAM_ID/g" Code.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;//g' Code.xcodeproj/project.pbxproj
 
-      - name: Compilar Esquema Code App de Forma Completa
+      - name: Compilar Esquema Code App sin Validación de Certificados
         run: |
+          # Usamos parámetros globales de omisión para forzar a Xcode a compilar los subpaquetes ignorando certificados revocados
           xcodebuild -project Code.xcodeproj \
             -scheme "Code App" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath ./DerivedDataOutput \
-            DEVELOPMENT_TEAM="ZXB3TS7QD4" \
-            CODE_SIGN_STYLE="Manual" \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             clean build
 
       - name: Empaquetar y Mover Estructura a appcodeplapla
