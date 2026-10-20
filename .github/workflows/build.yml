@@ -17,10 +17,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Prep env
+      - name: Forzar Xcode a usar Firma Local Simulada
         run: |
-          echo "CODE_SIGNING_ALLOWED=NO" >> $GITHUB_ENV
-          echo "CODE_SIGN_IDENTITY=" >> $GITHUB_ENV
+          echo "CODE_SIGNING_ALLOWED=YES" >> $GITHUB_ENV
+          echo "CODE_SIGNING_REQUIRED=NO" >> $GITHUB_ENV
+          echo "CODE_SIGN_IDENTITY=-" >> $GITHUB_ENV
           echo "PROVISIONING_PROFILE_SPECIFIER=" >> $GITHUB_ENV
 
       - name: Build Xcode
@@ -28,11 +29,11 @@ jobs:
           if [ -d *.xcworkspace ]; then
             WORKSPACE_NAME=$(basename *.xcworkspace)
             SCHEME_NAME=${WORKSPACE_NAME%.xcworkspace}
-            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="-" clean build
           else
             PROJECT_NAME=$(basename *.xcodeproj)
             SCHEME_NAME=${PROJECT_NAME%.xcodeproj}
-            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="-" clean build
           fi
 
       - name: Package
@@ -46,4 +47,3 @@ jobs:
         with:
           name: appcodeplapla
           path: appcodeplapla.ipa
-
