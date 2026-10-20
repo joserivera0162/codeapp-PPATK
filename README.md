@@ -1,4 +1,4 @@
-# Code App
+# Code AppTK
 
 Bringing desktop-like editing experience to iPad, available on [App Store](https://apps.apple.com/us/app/code-app/id1512938504) and [TestFlight](https://testflight.apple.com/join/EgZ8sE2P).
 
