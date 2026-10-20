@@ -1,13 +1,13 @@
 name: Build IPA Only
-on: [workflow_dispatch]
-workflow_dispatch:
+on:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 jobs:
   deploy:
     name: Compilando IPA
-    runs-on: macOS-14
+    runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
