@@ -1,5 +1,6 @@
 name: Build IPA Only
 on: [workflow_dispatch]
+workflow_dispatch:
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
