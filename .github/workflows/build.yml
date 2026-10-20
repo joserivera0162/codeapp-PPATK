@@ -22,9 +22,12 @@ jobs:
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Desactivar Requisitos de Firma en Entidades Hijas
+      - name: Purgar Contenido de Prueba y Parchear Xcode
         run: |
-          # Modifica la configuración de Xcode para desactivar firmas manuales conflictivas de raíz
+          # Elimina la carpeta de recursos de prueba que hace fallar a CompileAssetCatalog
+          rm -rf "CodeApp/Preview Content"
+          
+          # Remueve referencias manuales conflictivas del archivo del proyecto
           sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "[^"]*";//g' Code.xcodeproj/project.pbxproj
@@ -32,7 +35,6 @@ jobs:
 
       - name: Compilar Esquema Code App sin Validación de Certificados
         run: |
-          # Usamos parámetros globales de omisión para forzar a Xcode a compilar los subpaquetes ignorando certificados revocados
           xcodebuild -project Code.xcodeproj \
             -scheme "Code App" \
             -configuration Release \
@@ -42,6 +44,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_VALIDATION=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             clean build
 
