@@ -10,31 +10,28 @@ concurrency:
 jobs:
   deploy:
     name: Compilando IPA para Ksign
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Instalar CocoaPods si existe Podfile
+      - name: Descargar Frameworks Obligatorios de CodeApp
         run: |
-          if [ -f Podfile ] || [ -f ios/Podfile ]; then
-            echo "Instalando dependencias de CocoaPods..."
-            pod install || (cd ios && pod install)
-          fi
+          chmod +x downloadFrameworks.sh
+          ./downloadFrameworks.sh
 
-      - name: Compilar Binario Nativo Plano
+      - name: Preparar Entorno sin Firmas
         run: |
-          if [ -d *.xcworkspace ]; then
-            WORKSPACE_NAME=$(basename *.xcworkspace)
-            SCHEME_NAME=$(xcodebuild -workspace "$WORKSPACE_NAME" -list | sed -n '/Schemes:/,$p' | sed -n '3p' | sed 's/^[ \t]*//')
-            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
-          else
-            PROJECT_NAME=$(basename *.xcodeproj)
-            SCHEME_NAME=$(xcodebuild -project "$PROJECT_NAME" -list | sed -n '/Schemes:/,$p' | sed -n '3p' | sed 's/^[ \t]*//')
-            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
-          fi
+          echo "CODE_SIGNING_ALLOWED=NO" >> $GITHUB_ENV
+          echo "CODE_SIGNING_REQUIRED=NO" >> $GITHUB_ENV
+          echo "CODE_SIGN_IDENTITY=" >> $GITHUB_ENV
+          echo "PROVISIONING_PROFILE_SPECIFIER=" >> $GITHUB_ENV
+
+      - name: Compilar Proyecto en Xcode
+        run: |
+          xcodebuild -project Code.xcodeproj -scheme Code -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
 
       - name: Empaquetar IPA Plano
         run: |
