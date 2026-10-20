@@ -1,5 +1,11 @@
 name: Build CodeApp Advanced
-on: [workflow_dispatch]
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -17,23 +23,29 @@ jobs:
           P12_PASSWORD: ${{ secrets.KSIGN_P12_PASSWORD }}
           MOBILEPROVISION_BASE64: ${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}
         run: |
-          # Crear llavero temporal en la Mac
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$P12_BASE64" | base64 --decode > certificate.p12
           echo "$MOBILEPROVISION_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
           
-          security create-keychain -p "github-pass" build.keychain
+          # Solución al Error 1: Crear y desbloquear usando contraseña vacía ""
+          security create-keychain -p "" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "github-pass" build.keychain
+          security unlock-keychain -p "" build.keychain
           security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github-pass" build.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
 
-      - name: Descargar Frameworks
+      - name: Descargar Frameworks Obligatorios de CodeApp
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Compilar e Inyectar Firma Real
+      - name: Instalar CocoaPods si aplica
+        run: |
+          if [ -f Podfile ]; then
+            pod install
+          fi
+
+      - name: Compilar CodeUI Firmado con tus Certificados
         run: |
           xcodebuild -project Code.xcodeproj \
             -scheme CodeUI \
@@ -41,13 +53,13 @@ jobs:
             -sdk iphoneos \
             clean build
 
-      - name: Package
+      - name: Empaquetar IPA Plano
         run: |
           mkdir -p Payload
-          cp -r ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/
+          cp -r ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphoneos/*.app Payload/ 2>/dev/null || cp -r build/Release-iphoneos/*.app Payload/
           zip -r appcodeplapla.ipa Payload
 
-      - name: Upload
+      - name: Enviar a GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: appcodeplapla
