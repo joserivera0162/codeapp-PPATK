@@ -5,10 +5,36 @@ jobs:
     name: Extrayendo ID de Ksign
     runs-on: macos-14
     steps:
-      - name: Decodificar y Mostrar Team ID
+      - name: Decodificar con Python
         run: |
           echo "${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}" | tr -d '\r\n ' | base64 --decode > test.mobileprovision
-          TEAM_ID=$(strings test.mobileprovision | grep -A 1 "TeamIdentifier" | grep "<string>" | sed -E 's/<\/?string>//g' | tr -d '[:space:]' | head -n 1)
-          echo "=========================================="
-          echo "TU TEAM ID REAL ES: $TEAM_ID"
-          echo "=========================================="
+          
+          python3 -c '
+          import re
+          try:
+              with open("test.mobileprovision", "rb") as f:
+                  content = f.read().decode("utf-8", errors="ignore")
+              
+              # Busca la estructura XML nativa de los perfiles de Apple
+              team_ids = re.findall(r"<key>TeamIdentifier<\/key>\s*<array>\s*<string>([A-Z0-9]{10})<\/string>", content)
+              if not team_ids:
+                  team_ids = re.findall(r"<key>ApplicationIdentifierPrefix<\/key>\s*<array>\s*<string>([A-Z0-9]{10})<\/string>", content)
+              
+              if team_ids:
+                  print("==========================================")
+                  print(f"TU TEAM ID REAL ES: {team_ids[0]}")
+                  print("==========================================")
+              else:
+                  # Intenta buscar cualquier cadena de 10 caracteres en mayúsculas/números cerca de menciones de Apple
+                  clean_text = "".join([c if c.isalnum() else " " for c in content])
+                  words = clean_text.split()
+                  potential = [w for w in words if len(w) == 10 and w.isupper() and w.isalnum()]
+                  if potential:
+                      print("==========================================")
+                      print(f"POSIBLE TEAM ID DETECTADO: {potential[0]}")
+                      print("==========================================")
+                  else:
+                      print("No se pudo parsear el archivo de forma automática.")
+          except Exception as e:
+              print(f"Error al procesar: {e}")
+          '
