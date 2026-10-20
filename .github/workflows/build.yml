@@ -17,21 +17,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Descargar Frameworks Obligatorios de CodeApp
+      - name: Descargar Frameworks Obligatorios
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Preparar Entorno sin Firmas
+      - name: Instalar CocoaPods
         run: |
-          echo "CODE_SIGNING_ALLOWED=NO" >> $GITHUB_ENV
-          echo "CODE_SIGNING_REQUIRED=NO" >> $GITHUB_ENV
-          echo "CODE_SIGN_IDENTITY=" >> $GITHUB_ENV
-          echo "PROVISIONING_PROFILE_SPECIFIER=" >> $GITHUB_ENV
+          if [ -f Podfile ]; then
+            pod install
+          fi
 
-      - name: Compilar Proyecto en Xcode
+      - name: Compilar CodeUI en Xcode
         run: |
-          xcodebuild -project Code.xcodeproj -scheme Code -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+          xcodebuild -project Code.xcodeproj -scheme CodeUI -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
 
       - name: Empaquetar IPA Plano
         run: |
