@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Compilando IPA
+    name: Compilando IPA para Ksign
     runs-on: macos-latest
     steps:
       - name: Checkout repository
@@ -17,25 +17,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compilar Proyecto en Modo Simulador
+      - name: Compilar Binario Nativo
         run: |
           if [ -d *.xcworkspace ]; then
             WORKSPACE_NAME=$(basename *.xcworkspace)
             SCHEME_NAME=$(xcodebuild -workspace "$WORKSPACE_NAME" -list | sed -n '/Schemes:/,$p' | sed -n '3p' | sed 's/^[ \t]*//')
-            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator -arch arm64 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+            xcodebuild -workspace "$WORKSPACE_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
           else
             PROJECT_NAME=$(basename *.xcodeproj)
             SCHEME_NAME=$(xcodebuild -project "$PROJECT_NAME" -list | sed -n '/Schemes:/,$p' | sed -n '3p' | sed 's/^[ \t]*//')
-            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator -arch arm64 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+            xcodebuild -project "$PROJECT_NAME" -scheme "$SCHEME_NAME" -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
           fi
 
-      - name: Convertir .app a IPA
+      - name: Empaquetar IPA Plano
         run: |
           mkdir -p Payload
-          mv ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphonesimulator/*.app Payload/ 2>/dev/null || mv build/Release-iphonesimulator/*.app Payload/
+          cp -r ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Release-iphonesimulator/*.app Payload/ 2>/dev/null || cp -r build/Release-iphonesimulator/*.app Payload/
           zip -r appcodeplapla.ipa Payload
 
-      - name: Upload Artifact
+      - name: Enviar a GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: appcodeplapla
