@@ -17,8 +17,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Instalar Certificados Oficiales (Parche de Llavero)
-        uses: apple-actions/import-codesign-certs@v7
+      - name: Instalar Certificados Oficiales
+        uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.KSIGN_P12_BASE64 }}
           p12-password: ${{ secrets.KSIGN_P12_PASSWORD }}
@@ -32,6 +32,14 @@ jobs:
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
+
+      - name: Parchear Archivos de Xcode (Remover Bloqueos de Firma)
+        run: |
+          echo "Forzando Firma Automática y removiendo perfiles del creador..."
+          sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' Code.xcodeproj/project.pbxproj
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "[^"]*";//g' Code.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;//g' Code.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Code.xcodeproj/project.pbxproj
 
       - name: Compilar Esquema Code App de Forma Completa
         run: |
