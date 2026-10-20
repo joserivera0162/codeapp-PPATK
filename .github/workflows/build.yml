@@ -23,23 +23,34 @@ jobs:
           p12-file-base64: ${{ secrets.KSIGN_P12_BASE64 }}
           p12-password: ${{ secrets.KSIGN_P12_PASSWORD }}
 
-      - name: Instalar Perfiles de Provisión Ksign
+      - name: Instalar Perfiles de Provisión Ksign y Extraer Team ID
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "${{ secrets.KSIGN_MOBILEPROVISION_BASE64 }}" | tr -d '\r\n ' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          
+          # Extrae inteligentemente el Team ID real de tus certificados de Ksign
+          TEAM_ID=$(security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | grep -A 1 "TeamIdentifier" | grep "<string>" | sed -E 's/<\/?string>//g' | tr -d '[:space:]')
+          echo "DETECTED_TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
+          echo "Tu Team ID extraído es: $TEAM_ID"
 
       - name: Ejecutar script de Frameworks de CodeApp
         run: |
           chmod +x downloadFrameworks.sh
           ./downloadFrameworks.sh
 
-      - name: Parchear Archivos de Xcode (Remover Bloqueos de Firma)
+      - name: Parchear e Inyectar tu Team ID en Xcode
         run: |
-          echo "Forzando Firma Automática y removiendo perfiles del creador..."
+          echo "Configurando de forma avanzada el proyecto con tu Team ID: $DETECTED_TEAM_ID"
           sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' Code.xcodeproj/project.pbxproj
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "[^"]*";//g' Code.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;//g' Code.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' Code.xcodeproj/project.pbxproj
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "[^"]*";//g' Code.xcodeproj/project.pbxproj
+          
+          # Sobrescribe de raíz cualquier rastro del equipo viejo por tu Team ID real
+          sed -i '' "s/DEVELOPMENT_TEAM = [^;]*/DEVELOPMENT_TEAM = $DETECTED_TEAM_ID/g" Code.xcodeproj/project.pbxproj
+          
+          # Asegura que todos los componentes apunten obligatoriamente a tu firma
+          echo "CODE_SIGN_IDENTITY=iPhone Distribution" >> $GITHUB_ENV
+          echo "DEVELOPMENT_TEAM=$DETECTED_TEAM_ID" >> $GITHUB_ENV
 
       - name: Compilar Esquema Code App de Forma Completa
         run: |
@@ -48,6 +59,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath ./DerivedDataOutput \
+            DEVELOPMENT_TEAM="${{ env.DETECTED_TEAM_ID }}" \
             clean build
 
       - name: Empaquetar y Mover Estructura a appcodeplapla
